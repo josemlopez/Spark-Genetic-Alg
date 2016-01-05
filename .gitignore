@@ -1,0 +1,10 @@
+/.idea/
+/project/boot/
+/project/plugins/project
+/metastore_db/
+target/
+lib_managed/
+src_managed/
+test-output/
+*.iml
+derby.log
