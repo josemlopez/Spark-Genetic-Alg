@@ -25,7 +25,7 @@ object fitness {
     _f2jBLAS
   }
 
-  def fitnessMochilaProblem(indv : Individual[Boolean], prices: Broadcast[DenseVector], weight: Broadcast[DenseVector]): Double = {
+  def fitnessKnapsackProblem(indv : Individual[Boolean], prices: Broadcast[DenseVector], weight: Broadcast[DenseVector]): Double = {
     require(prices.value.size == weight.value.size)
     val ewPWeight = new ElementwiseProduct(weight.value)
     val valuesByWeight = ewPWeight.transform(prices.value).toDense
