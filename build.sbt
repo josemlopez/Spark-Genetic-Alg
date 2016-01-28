@@ -2,7 +2,7 @@ name := "GeneticAlgoritm_Spark"
 
 version := "1.0"
 
-scalaVersion := "2.11.4"
+scalaVersion := "2.10.5"
 
 scalacOptions := Seq("-feature", "-unchecked", "-deprecation", "-encoding", "utf8")
 

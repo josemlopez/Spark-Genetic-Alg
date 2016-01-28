@@ -6,7 +6,11 @@ import org.apache.spark.mllib.linalg.DenseVector
 /**
  * Created by jmlopez on 01/01/16.
  */
-case class Individual[T](chromosome: Vector, fitness: Option[Double])
+case class Individual[T](chromosome: Vector, fitness: Option[Double]) {
+  override def toString(): String = {
+    "Individual: " + chromosome.toString
+  }
+}
 
 trait GAOperators[T]{
   def crossover:(Individual[T], Individual[T]) => List[Individual[T]]
@@ -62,7 +66,7 @@ object generateIndividualBoolean {
     }
     val population = new ListBuffer[Individual[Boolean]]
     val populationIterator = randomInitialPopulation[Boolean](generateIndividualBoolean)(Random.nextLong())
-    for (i <- 1 to sizePop) {
+    for (i <- 1 to sizePop.toInt) {
       population += populationIterator.next()
     }
     population

@@ -51,38 +51,41 @@ object GA{
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++
         parentA.chromosome.toDense.values.slice(crossPoint+1,chrSize)
       // One point mutation.
+      if (chrmA.size == 0 || chrmB.size == 0){
+        println("Estos son: " + chrmA.mkString(";") + " y este " + chrmB.mkString(";"))
+        println("Y estos los padres: " + parentA.toString() + " y este : " + parentB.toString())
+      }
       onePointMutationBoolean(chrmA, mutateProb)
       onePointMutationBoolean(chrmB, mutateProb)
       // Execute of the crossover and creation of the two new individuals
       val res = (new Individual[Boolean](new DenseVector(chrmA), Some(0.toDouble)),
         new Individual[Boolean](new DenseVector(chrmB), Some(0.toDouble)))
-      println(" CrossOver: " + res.toString())
+      //println(" CrossOver: " + res.toString())
       res
     }
 
     def selection(iter: Iterator[(Double, Individual[Boolean])]): Iterator[(Double, Individual[Boolean])] = {
-      var res = List[(Double, Individual[Boolean])]()
-      val partitionSize = sizePopulation/numPartitions
-      var selectionSize = partitionSize*selectionPercentage
-      println("Inside Selection. Before While")
-      println(partitionSize+";"+selectionSize +";"+iter.hasNext)
-      println("Is Empty?: "+iter.isEmpty)
-      while (selectionSize > 1 && iter.hasNext){
-        println("Inside Selection. After While")
-        val parent_A = iter.next()
-        val parent_B = iter.next()
+      var currentSelectionOrdered = iter.toList.sortBy(x => x._1).reverse
+      val initialPopSize = currentSelectionOrdered.size
+      var selectionSize = (initialPopSize*selectionPercentage).ceil
+      var res: List[(Double, Individual[Boolean])] = List()
+      while (selectionSize>=2){
+        val selectionSplit = currentSelectionOrdered.splitAt(2)
+        currentSelectionOrdered = selectionSplit._2
+        val parent_A = selectionSplit._1.head
+        val parent_B = selectionSplit._1.last
         val descents = cross(parent_A._2, parent_B._2)
         // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
         // each individual
-        val family = List(parent_A, parent_B,
+        val family: List[(Double, Individual[Boolean])] = List(parent_A, parent_B,
           (fitnessKnapsackProblem(descents._1, values, weights, maxWeight), descents._1),
-          (fitnessKnapsackProblem(descents._2, values, weights, maxWeight), descents._2)).sortBy(x => x._1)
-        println("New Family: "+family.mkString(","))
+          (fitnessKnapsackProblem(descents._2, values, weights, maxWeight), descents._2)).sortBy(x => x._1).reverse
         // Once we have sorted the list of individuals in the family, we take the best 2 individuals.
         // This is pure Elitism and it affect directly to the behaviour of the GA because it affect to the diversity of
         // the population.
-        // Another way can be take (2) without sort the family or always get the descents
-        res = res:::family.take(2)
+        //println("family: " +family.mkString(";"))
+        res = res:::family
+        //println("Res: " +res.mkString(";"))
         selectionSize -= 2
       }
       // In this point we have to give one concession:
@@ -97,12 +100,13 @@ object GA{
       // A problem with the elitism is that we can fall in local solution quickly if we lose diversity in our population
       // fast. This problem is present when you select always the same parents (the best) and the algorithm doesn't
       // inspect other possible paths that can appear worst in the beginning but can be far better finally.
-      res.iterator
+      val selectedIndv = res.sortBy(x=>x._1).reverse.take(initialPopSize)
+      //println("number of elements in Selection: " + selectedIndv.size)
+      selectedIndv.iterator
     }
 
     //We use a map for each partition, this way the execution is all in the worker side.
     //We have to give some concessions:
-    println("Conteo Poblacion: " + population.count)
     population.mapPartitions(selection, preservesPartitioning = true)
   }
 }
