@@ -8,7 +8,7 @@ import org.apache.spark.mllib.linalg.DenseVector
  */
 case class Individual[T](chromosome: Vector, fitness: Option[Double]) {
   override def toString(): String = {
-    "Individual: " + chromosome.toString
+     chromosome.toArray.mkString(";")
   }
 }
 

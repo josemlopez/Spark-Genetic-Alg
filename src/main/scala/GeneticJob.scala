@@ -1,15 +1,33 @@
 import GeneticAlgorithm.GA._
+import domain.Individual
 import domain.fitness._
 import domain.generateIndividualBoolean._
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.{DenseVector, Vectors}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs._
 
+
+import java.io.StringWriter
+import au.com.bytecode.opencsv.CSVWriter
+import scala.collection.JavaConversions._
+import java.io.FileWriter
+import java.io.BufferedWriter
 
 /**
  * Created by jmlopez on 01/01/16.
  */
 object GeneticJob{
+
+  case class GAStat (generation: Int, averageFit: Double, totalFit: Double)
+
+  def merge(srcPath: String, dstPath: String): Unit =  {
+    val hadoopConfig = new Configuration()
+    val hdfs = FileSystem.get(hadoopConfig)
+    FileUtil.copyMerge(hdfs, new Path(srcPath), hdfs, new Path(dstPath), false, hadoopConfig, null)
+  }
+
   def main(args: Array[String]) {
     // val conf = new SparkConf ().setAppName ("Genetic Application")
     val sc = new SparkContext ()
@@ -40,6 +58,12 @@ object GeneticJob{
     println("----------initial population and Fitness-------")
     populationRDD.foreach(println)
 
+
+    var statisticsList: List[Array[String]] = List()
+    val out = new BufferedWriter(new FileWriter("stat.csv"))
+    val writer = new CSVWriter(out)
+
+
     val numGenerations = 300
     for (i<-0 to numGenerations) {
       val populationSize = populationRDD.count()
@@ -56,8 +80,19 @@ object GeneticJob{
         weights,
         maxW)
       //populationFitness.foreach(println)
-      println ("Total fitness: " + populationRDD.map (indv => indv._1).reduce ((acc, curr) => if (curr > 0) {acc + curr} else acc))
+      val totalFitness: Double = populationRDD.map (indv => indv._1).reduce ((acc, curr) => if (curr > 0) {acc + curr} else acc)
+      val bestIndv = populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x._1))(0)
+
+      statisticsList = Array(i.toString,
+        (totalFitness/populationSize).toString,
+        totalFitness.toString,
+        bestIndv._2.toString(),
+        bestIndv._1.toString
+      )::statisticsList
     }
+
+    writer.writeAll(statisticsList)
+    out.close()
     populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x._1)).
       foreach(x => println("This is the solution: " + x.toString()))
   }
