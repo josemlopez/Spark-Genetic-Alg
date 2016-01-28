@@ -5,6 +5,7 @@ import domain.fitness._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
+import scala.util.Try
 
 /**
  * Created by jmlopez on 27/01/16.
@@ -43,20 +44,17 @@ object GA{
           }
         }
       }
+
       val chrSize = parentA.chromosome.size
       val crossPoint = scala.util.Random.nextInt(chrSize)
       // We'll need the chromosome of each parent to create the new individuals
       val chrmA: Array[Double] = parentA.chromosome.toDense.values.slice(0,crossPoint)++
-        parentB.chromosome.toDense.values.slice(crossPoint+1,chrSize)
+        parentB.chromosome.toDense.values.slice(crossPoint,chrSize)
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++
-        parentA.chromosome.toDense.values.slice(crossPoint+1,chrSize)
+        parentA.chromosome.toDense.values.slice(crossPoint,chrSize)
       // One point mutation.
-      if (chrmA.size == 0 || chrmB.size == 0){
-        println("Estos son: " + chrmA.mkString(";") + " y este " + chrmB.mkString(";"))
-        println("Y estos los padres: " + parentA.toString() + " y este : " + parentB.toString())
-      }
-      onePointMutationBoolean(chrmA, mutateProb)
-      onePointMutationBoolean(chrmB, mutateProb)
+      onePointMutationBoolean (chrmA, mutateProb)
+      onePointMutationBoolean (chrmB, mutateProb)
       // Execute of the crossover and creation of the two new individuals
       val res = (new Individual[Boolean](new DenseVector(chrmA), Some(0.toDouble)),
         new Individual[Boolean](new DenseVector(chrmB), Some(0.toDouble)))
@@ -74,7 +72,8 @@ object GA{
         currentSelectionOrdered = selectionSplit._2
         val parent_A = selectionSplit._1.head
         val parent_B = selectionSplit._1.last
-        val descents = cross(parent_A._2, parent_B._2)
+        val descents = cross (parent_A._2, parent_B._2)
+
         // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
         // each individual
         val family: List[(Double, Individual[Boolean])] = List(parent_A, parent_B,

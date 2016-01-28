@@ -1,12 +1,9 @@
-import domain.{Individual}
 import GeneticAlgorithm.GA._
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.rdd.RDD
-import org.apache.spark.{SparkContext, SparkConf}
-import domain.generateIndividualBoolean._
-
-import org.apache.spark.mllib.linalg.{Vectors, Vector, DenseVector}
 import domain.fitness._
+import domain.generateIndividualBoolean._
+import org.apache.spark.SparkContext
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.mllib.linalg.{DenseVector, Vectors}
 
 
 /**
@@ -30,16 +27,20 @@ object GeneticJob{
     val values: Broadcast[DenseVector] = sc.broadcast(Vectors.dense(20.5, 10.6, 10.2, 1 , 94, 2, 1, 3, 7, 91, 64, 4).toDense)
     val weights =  sc.broadcast(Vectors.dense(10.2, 76,  2, 18, 10.87, 5, 2, 1, 3, 1, 76, 198).toDense)
     val maxW = 67
+    if (values.value.size != weights.value.size) {
+      sys.exit(-1)
+    }
+    val crhmSize = values.value.size-1
 
     val sizePopulation = 10
-    var populationRDD = sc.parallelize(initialPopulationBoolean(5, sizePopulation), 3).
+    var populationRDD = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), 3).
       map(ind => (fitnessKnapsackProblem(ind, values, weights, maxW), ind))
 
 
     println("----------initial population and Fitness-------")
     populationRDD.foreach(println)
 
-    val numGenerations = 10
+    val numGenerations = 300
     for (i<-0 to numGenerations) {
       val populationSize = populationRDD.count()
       val partitions = populationRDD.partitions.size

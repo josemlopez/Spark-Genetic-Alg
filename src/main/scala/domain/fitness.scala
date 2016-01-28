@@ -1,9 +1,8 @@
 package domain
 
+import com.github.fommil.netlib.{F2jBLAS, BLAS => NetlibBLAS}
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.mllib.linalg.{Vector, Vectors, DenseVector}
-import org.apache.spark.mllib.feature.ElementwiseProduct
-import com.github.fommil.netlib.{BLAS => NetlibBLAS, F2jBLAS}
+import org.apache.spark.mllib.linalg.DenseVector
 
 /**
  * Created by jmlopez on 02/01/16.
