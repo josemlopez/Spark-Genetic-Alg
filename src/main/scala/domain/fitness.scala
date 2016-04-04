@@ -7,24 +7,29 @@ import org.apache.spark.mllib.linalg.DenseVector
 /**
  * Created by jmlopez on 02/01/16.
  */
-class fitness {
 
-}
 
-object fitness {
+trait Fitness {
 
   @transient private var _f2jBLAS: NetlibBLAS = _
   // @transient private var _nativeBLAS: NetlibBLAS = _
 
   // For level-1 routines, we use Java implementation.
-  private def f2jBLAS: NetlibBLAS = {
+  protected def f2jBLAS: NetlibBLAS = {
     if (_f2jBLAS == null) {
       _f2jBLAS = new F2jBLAS
     }
     _f2jBLAS
   }
 
-  def fitnessKnapsackProblem(indv : Individual[Boolean], prices: Broadcast[DenseVector], weight: Broadcast[DenseVector], maxW: Double): Double = {
+  def fitnessFunction[T](individual: Individual[T]): Double
+
+}
+
+class FitnessKnapsackProblem (prices: Broadcast[DenseVector], weight: Broadcast[DenseVector], maxW: Double)
+  extends Fitness {
+
+  override def fitnessFunction[Boolean](indv : Individual[Boolean]): Double = {
     require(prices.value.size == weight.value.size)
 
     val weightInSack = f2jBLAS.ddot(indv.chromosome.size, weight.value.values, 1, indv.chromosome.toDense.values, 1)

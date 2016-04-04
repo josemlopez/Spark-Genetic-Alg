@@ -1,13 +1,11 @@
 import GeneticAlgorithm.GA._
-import domain.Individual
-import domain.fitness._
+import domain.FitnessKnapsackProblem
 import domain.generateIndividualBoolean._
 import org.apache.spark.SparkContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.{DenseVector, Vectors}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
-
 
 import java.io.StringWriter
 import au.com.bytecode.opencsv.CSVWriter
@@ -30,6 +28,7 @@ object GeneticJob{
 
   def main(args: Array[String]) {
     // val conf = new SparkConf ().setAppName ("Genetic Application")
+
     val sc = new SparkContext ()
 
     /* var rdd = sc.parallelize(List(1,2,3,4,5,6,7,8),2)
@@ -45,14 +44,17 @@ object GeneticJob{
     val values: Broadcast[DenseVector] = sc.broadcast(Vectors.dense(20.5, 10.6, 10.2, 1 , 94, 2, 1, 3, 7, 91, 64, 4).toDense)
     val weights =  sc.broadcast(Vectors.dense(10.2, 76,  2, 18, 10.87, 5, 2, 1, 3, 1, 76, 198).toDense)
     val maxW = 67
+    val selectionPer = 0.5
+    val mutationProb = 0.01f
     if (values.value.size != weights.value.size) {
       sys.exit(-1)
     }
     val crhmSize = values.value.size-1
 
     val sizePopulation = 10
+    val fitnessKSP = new FitnessKnapsackProblem(values, weights, maxW)
     var populationRDD = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), 3).
-      map(ind => (fitnessKnapsackProblem(ind, values, weights, maxW), ind))
+      map(ind => ind(fitnessKSP.fitnessFunction))
 
 
     println("----------initial population and Fitness-------")
@@ -72,28 +74,28 @@ object GeneticJob{
 
       populationRDD = selectAndCrossAndMutatePopulation (
         populationRDD,
-        0.5,
+        selectionPer,
         sizePopulation,
-        0.01f,
-        fitnessKnapsackProblem,
+        mutationProb,
+        fitnessKSP,
         values,
         weights,
         maxW)
       //populationFitness.foreach(println)
-      val totalFitness: Double = populationRDD.map (indv => indv._1).reduce ((acc, curr) => if (curr > 0) {acc + curr} else acc)
-      val bestIndv = populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x._1))(0)
+      val totalFitness: Option[Double] = populationRDD.map(indv => indv.fitnessScore).reduce((acc, curr) => if (curr.get > 0) { Some(acc.get + curr.get)} else acc)
+      val bestIndv = populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x.fitnessScore.getOrElse(-Double.MaxValue)))(0)
 
       statisticsList = Array(i.toString,
-        (totalFitness/populationSize).toString,
+        (totalFitness.get/populationSize).toString,
         totalFitness.toString,
-        bestIndv._2.toString(),
-        bestIndv._1.toString
+        bestIndv.chromosome.toString,
+        bestIndv.fitnessScore.toString
       )::statisticsList
     }
 
     writer.writeAll(statisticsList)
     out.close()
-    populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x._1)).
+    populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x.fitnessScore.get)).
       foreach(x => println("This is the solution: " + x.toString()))
   }
 }

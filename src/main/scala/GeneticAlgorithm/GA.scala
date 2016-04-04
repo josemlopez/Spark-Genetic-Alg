@@ -1,7 +1,7 @@
 package GeneticAlgorithm
 
 import domain.Individual
-import domain.fitness._
+import domain.{Fitness, FitnessKnapsackProblem}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
@@ -11,25 +11,30 @@ import scala.util.Try
  * Created by jmlopez on 27/01/16.
  */
 object GA{
-  /**
-   * Select a percentage of the best Individuals in population
-   * @param population
-   * @return
-   */
-  def selectAndCrossAndMutatePopulation(population: RDD[(Double, Individual[Boolean])],
+
+  def selectAndCrossAndMutatePopulation(population: RDD[Individual[Boolean]],
                                         selectionPercentage: Double, // we use a percentage of the final population and not a fixed population selection
                                         sizePopulation: Int,
                                         mutateProb: Float,
-                                        fitness: (Individual[Boolean], Broadcast[DenseVector], Broadcast[DenseVector], Double) => Double,
+                                        fitness: Fitness,
                                         values: Broadcast[DenseVector], //In the "Knapsack problem" we have "Values of Objects and Weights of Objects"
                                         weights: Broadcast[DenseVector],
-                                        maxWeight: Double): RDD[(Double, Individual[Boolean])]={
+                                        maxWeight: Double) ={
     // Why we use a Mega-function to do almost everything (Select-Mutation-Cross and Fitness calc)?:
     //   because we can make everything in a simple pass in the worker side
 
     val numPartitions = population.partitions.size
-    // This method will take one random point for each individual (A and B) and create two new individuals with the
-    // genome of each parent
+
+    /**
+      * This cross function will create two children from parentA and parentB
+      *
+      * Note : A near future improvement will be the mutation fuction passed like an argument like the fitness function
+      * @param parentA
+      * @param parentB
+      * @tparam T
+      * @return
+      * @todo A near future improvement will be the mutation function passed like an argument
+      */
     def cross[T](parentA: Individual[Boolean],
                  parentB: Individual[Boolean]): (Individual[Boolean],Individual[Boolean])  = {
       // Here the point of cross is selected and a mutation is applied to the chromosome with probability: mutateProb
@@ -62,50 +67,53 @@ object GA{
       res
     }
 
-    def selection(iter: Iterator[(Double, Individual[Boolean])]): Iterator[(Double, Individual[Boolean])] = {
-      var currentSelectionOrdered = iter.toList.sortBy(x => x._1).reverse
+    /**
+      * The selection function will select the parents to be crossover to build a new generation.
+      *
+      * The amount of parents that will be selected is calculated like a percentage of the total size in our population
+      *
+      * @param iter
+      * @return
+      */
+    def selection(iter: Iterator[Individual[Boolean]]) = {
+      // Ordering the population by fitnessScore    (1)
+      val currentSelectionOrdered: List[Individual[Boolean]] = iter.toList.sortBy(x => x.fitnessScore).reverse
+      // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
       val initialPopSize = currentSelectionOrdered.size
-      var selectionSize = (initialPopSize*selectionPercentage).ceil
-      var res: List[(Double, Individual[Boolean])] = List()
-      while (selectionSize>=2){
-        val selectionSplit = currentSelectionOrdered.splitAt(2)
-        currentSelectionOrdered = selectionSplit._2
-        val parent_A = selectionSplit._1.head
-        val parent_B = selectionSplit._1.last
-        val descents = cross (parent_A._2, parent_B._2)
+      val selectionSize = (initialPopSize*selectionPercentage).ceil.toInt
 
-        // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
-        // each individual
-        val family: List[(Double, Individual[Boolean])] = List(parent_A, parent_B,
-          (fitnessKnapsackProblem(descents._1, values, weights, maxWeight), descents._1),
-          (fitnessKnapsackProblem(descents._2, values, weights, maxWeight), descents._2)).sortBy(x => x._1).reverse
-        // Once we have sorted the list of individuals in the family, we take the best 2 individuals.
-        // This is pure Elitism and it affect directly to the behaviour of the GA because it affect to the diversity of
-        // the population.
-        //println("family: " +family.mkString(";"))
-        res = res:::family
-        //println("Res: " +res.mkString(";"))
-        selectionSize -= 2
-      }
-      // In this point we have to give one concession:
-      //   As we know, we have a partition of our population in each partition of the RDD
-      // An GA with elitism selects the best N individuals of the population to be crossed to generate new individuals.
-      // These new individuals will be "fitness" and will replace the worst N individuals of the population.
-      // I will not follow that path: The current implementation will calculate and replace the best M < N (where M aprox N * numpartitions)
-      // individuals of the current partition, this way the implementation will be faster than the other
-      // and our population can be huge.
+      // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
+      // each new individual
+      val springs = currentSelectionOrdered. // we have our population in a List, ordered by the bests first
+        take(selectionSize).   // (1) Selecting the N parents that will create the next childhood
+        sliding(2,2).          // (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
+        map {                  // (3) Now that we have the parents separated in Lists, we can crossover
+        case List(parent_A, parent_B) => {
+          val spring = cross(parent_A, parent_B)    // (4) Lets remember that mutation is executed inside the Cross (to be changed)
+          List(spring._1(fitness.fitnessFunction), spring._2(fitness.fitnessFunction))  // (5) Remember to fitness the children!!!
+        }
+      }.toList.
+        flatMap(x => x)   // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
 
-      //This implementation have another side effect: it can be a good idea in terms of diversity in our population.
-      // A problem with the elitism is that we can fall in local solution quickly if we lose diversity in our population
-      // fast. This problem is present when you select always the same parents (the best) and the algorithm doesn't
-      // inspect other possible paths that can appear worst in the beginning but can be far better finally.
-      val selectedIndv = res.sortBy(x=>x._1).reverse.take(initialPopSize)
+      val genOldAndGenNew  = springs ++ currentSelectionOrdered
+      val selectedIndviduals = genOldAndGenNew.sortBy(x=>x.fitnessScore).reverse.take(initialPopSize)
       //println("number of elements in Selection: " + selectedIndv.size)
-      selectedIndv.iterator
+      selectedIndviduals.iterator
     }
 
-    //We use a map for each partition, this way the execution is all in the worker side.
-    //We have to give some concessions:
+    // Why mapPartitions?
+
+    //   We have the entire population partitioned in some partitions of the RDD
+    // An GA with elitism selects the best N individuals of the entire population from generation i-1 to generation i.
+    // To select the best "k" individuals and toss the worst "k" individuals to be substituted in some point we will need
+    // to do a "collect". This substitution of the worst with the bests is called Elitism.
+    // The Selection is probably the principal tool in a GA. The problem is that Elitism reduce drastically the diversity of the population and
+    // will drive (with a high probability) the GA to a local optimum.
+    // To maintain the diversity in the population is a problem driven with Mutation (for example) but sometimes this operator it's not enough.
+
+    // This solution will not follow that path: The current implementation will calculate and replace the best K individuals
+    // in each partition, not in the entire population, this way we have a set of GAs running in parallel in our RDD.
+
     population.mapPartitions(selection, preservesPartitioning = true)
   }
 }

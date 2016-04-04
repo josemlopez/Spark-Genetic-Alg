@@ -6,10 +6,11 @@ import org.apache.spark.mllib.linalg.DenseVector
 /**
  * Created by jmlopez on 01/01/16.
  */
-case class Individual[T](chromosome: Vector, fitness: Option[Double]) {
+case class Individual[T](chromosome: Vector, fitnessScore: Option[Double]) {
   override def toString(): String = {
      chromosome.toArray.mkString(";")
   }
+  def apply(function: Individual[T] => Double) = Individual[T](chromosome=this.chromosome, fitnessScore = Some(function(this)))
 }
 
 trait GAOperators[T]{
