@@ -1,7 +1,7 @@
 package GeneticAlgorithm
 
 import domain.Individual
-import domain.{Fitness, FitnessKnapsackProblem}
+import domain.{Fitness}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
@@ -95,6 +95,8 @@ object GA{
       }.toList.
         flatMap(x => x)   // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
 
+      // I've chosen a type of replacement that select the best individuals from the sum of: oldPopulation + newPopulation
+      // in a very near future new replacement strategies will be implemented and pass like function
       val genOldAndGenNew  = springs ++ currentSelectionOrdered
       val selectedIndviduals = genOldAndGenNew.sortBy(x=>x.fitnessScore).reverse.take(initialPopSize)
       //println("number of elements in Selection: " + selectedIndv.size)
@@ -103,15 +105,16 @@ object GA{
 
     // Why mapPartitions?
 
-    //   We have the entire population partitioned in some partitions of the RDD
-    // An GA with elitism selects the best N individuals of the entire population from generation i-1 to generation i.
+    //   I've the entire population spread in some partitions of the RDD
+    // This GA selects the best N individuals of the entire population from generation i-1 to generation i.
     // To select the best "k" individuals and toss the worst "k" individuals to be substituted in some point we will need
-    // to do a "collect". This substitution of the worst with the bests is called Elitism.
-    // The Selection is probably the principal tool in a GA. The problem is that Elitism reduce drastically the diversity of the population and
+    // to do a "collect".
+    // The Selection is, probably, the principal tool in a GA. One of the problems in a GA is when your population lost the diversity and
     // will drive (with a high probability) the GA to a local optimum.
     // To maintain the diversity in the population is a problem driven with Mutation (for example) but sometimes this operator it's not enough.
+    // The replacement (the second phase in the selection) is another important tool to keep the diversity in out population.
 
-    // This solution will not follow that path: The current implementation will calculate and replace the best K individuals
+    // This solution will not follow the usual path: The current implementation will calculate and replace the best K individuals
     // in each partition, not in the entire population, this way we have a set of GAs running in parallel in our RDD.
 
     population.mapPartitions(selection, preservesPartitioning = true)
