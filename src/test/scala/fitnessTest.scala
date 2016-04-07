@@ -2,8 +2,10 @@
  * Created by jmlopez on 27/01/16.
  */
 
+/**
+import GeneticAlgorithm.GA
 import domain.Individual
-import domain.fitness._
+import domain.FitnessKnapsackProblem
 import domain.generateIndividualBoolean._
 import org.apache.spark.{SparkContext, SparkConf}
 import org.apache.spark.broadcast.Broadcast
@@ -28,7 +30,7 @@ class fitnessTest extends FlatSpec with Matchers {
   val weights =  sc.broadcast(Vectors.dense(10.2, 76,  2,    18, 10.87, 5).toDense)
 
 
-  val populationFitness = fitnessKnapsackProblem(Individual[Boolean](Vectors.dense(1,1,1,1,1,1), Option.empty[Double]), values, weights, maxW)
+  val populationFitness = FitnessKnapsackProblem(Individual[Boolean](Vectors.dense(1,1,1,1,1,1), Option.empty[Double]), values, weights, maxW)
 
   "A Stack" should "pop values in last-in-first-out order" in {
     val stack = new Stack[Int]
@@ -44,4 +46,9 @@ class fitnessTest extends FlatSpec with Matchers {
       emptyStack.pop()
     }
   }
+
+  //GA.sel
+
 }
+
+  **/

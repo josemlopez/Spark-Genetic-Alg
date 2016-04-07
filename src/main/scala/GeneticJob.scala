@@ -27,23 +27,15 @@ object GeneticJob{
   }
 
   def main(args: Array[String]) {
-    // val conf = new SparkConf ().setAppName ("Genetic Application")
 
     val sc = new SparkContext ()
-
-    /* var rdd = sc.parallelize(List(1,2,3,4,5,6,7,8),2)
-    for (i <-1 to 10){
-      rdd = rdd.map(x => x+1)
-    }
-    rdd.foreach(println)
-    */
 
     // This will go to a .ini file or will be passed like argument
     // Quick & Dirty testing purposes
     // Broadcasting the values and weights to the workers. This vector can be huge "in normal use"
-    val values: Broadcast[DenseVector] = sc.broadcast(Vectors.dense(20.5, 10.6, 10.2, 1 , 94, 2, 1, 3, 7, 91, 64, 4).toDense)
-    val weights =  sc.broadcast(Vectors.dense(10.2, 76,  2, 18, 10.87, 5, 2, 1, 3, 1, 76, 198).toDense)
-    val maxW = 67
+    val values: Broadcast[DenseVector] = sc.broadcast(Vectors.dense(Array.fill(300)(math.random*100)).toDense)
+    val weights =  sc.broadcast(Vectors.dense(Array.fill(300)(math.random*10)).toDense)
+    val maxW = 157
     val selectionPer = 0.5
     val mutationProb = 0.01f
     if (values.value.size != weights.value.size) {
@@ -51,7 +43,7 @@ object GeneticJob{
     }
     val crhmSize = values.value.size-1
 
-    val sizePopulation = 10
+    val sizePopulation = 10000
     val fitnessKSP = new FitnessKnapsackProblem(values, weights, maxW)
     var populationRDD = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), 3).
       map(ind => ind(fitnessKSP.fitnessFunction))
@@ -65,8 +57,11 @@ object GeneticJob{
     val out = new BufferedWriter(new FileWriter("stat.csv"))
     val writer = new CSVWriter(out)
 
+    val outT = new BufferedWriter(new FileWriter("totalStat.csv"))
+    val writerT = new CSVWriter(outT)
 
-    val numGenerations = 300
+
+    val numGenerations = 30
     for (i<-0 to numGenerations) {
       val populationSize = populationRDD.count()
       val partitions = populationRDD.partitions.size
@@ -83,18 +78,25 @@ object GeneticJob{
         maxW)
       //populationFitness.foreach(println)
       val totalFitness: Option[Double] = populationRDD.map(indv => indv.fitnessScore).reduce((acc, curr) => if (curr.get > 0) { Some(acc.get + curr.get)} else acc)
-      val bestIndv = populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x.fitnessScore.getOrElse(-Double.MaxValue)))(0)
+      val bestIndv = populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x.fitnessScore.getOrElse(Double.MaxValue)))(0)
 
-      statisticsList = Array(i.toString,
+      val actualStat = Array(i.toString,
         (totalFitness.get/populationSize).toString,
         totalFitness.toString,
         bestIndv.chromosome.toString,
         bestIndv.fitnessScore.toString
-      )::statisticsList
+      )
+      println("This is the partial solution: " + actualStat.mkString(";"))
+      statisticsList = statisticsList ++ List(actualStat)
+
+      writer.writeAll(List(actualStat))
     }
 
-    writer.writeAll(statisticsList)
+    writerT.writeAll(statisticsList)
     out.close()
+    out.flush()
+    outT.flush()
+    outT.close()
     populationRDD.takeOrdered(1)(Ordering[Double].reverse.on(x => x.fitnessScore.get)).
       foreach(x => println("This is the solution: " + x.toString()))
   }

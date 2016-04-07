@@ -9,7 +9,7 @@ import org.apache.spark.mllib.linalg.DenseVector
  */
 
 
-trait Fitness {
+trait Fitness extends java.io.Serializable {
 
   @transient private var _f2jBLAS: NetlibBLAS = _
   // @transient private var _nativeBLAS: NetlibBLAS = _
@@ -27,14 +27,14 @@ trait Fitness {
 }
 
 class FitnessKnapsackProblem (prices: Broadcast[DenseVector], weight: Broadcast[DenseVector], maxW: Double)
-  extends Fitness {
+  extends Fitness with java.io.Serializable{
 
   override def fitnessFunction[Boolean](indv : Individual[Boolean]): Double = {
     require(prices.value.size == weight.value.size)
 
     val weightInSack = f2jBLAS.ddot(indv.chromosome.size, weight.value.values, 1, indv.chromosome.toDense.values, 1)
     if (weightInSack > maxW) {
-      return -1000.toDouble
+      return -1000.toDouble * weightInSack
     }
 
     // Element-wise Product ---> [a11 a12 a13] [b11 b12 b13] = [a11*b11 a12*b12 a13*b13]

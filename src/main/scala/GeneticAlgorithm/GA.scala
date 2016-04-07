@@ -87,10 +87,12 @@ object GA{
       val springs = currentSelectionOrdered. // we have our population in a List, ordered by the bests first
         take(selectionSize).   // (1) Selecting the N parents that will create the next childhood
         sliding(2,2).          // (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
-        map {                  // (3) Now that we have the parents separated in Lists, we can crossover
-        case List(parent_A, parent_B) => {
-          val spring = cross(parent_A, parent_B)    // (4) Lets remember that mutation is executed inside the Cross (to be changed)
-          List(spring._1(fitness.fitnessFunction), spring._2(fitness.fitnessFunction))  // (5) Remember to fitness the children!!!
+        map { l => l match {                 // (3) Now that we have the parents separated in Lists, we can crossover
+          case List(parent_A, parent_B) => {
+            val spring = cross(parent_A, parent_B)    // (4) Lets remember that mutation is executed inside the Cross (to be changed)
+            List(spring._1(fitness.fitnessFunction), spring._2(fitness.fitnessFunction))  // (5) Remember to fitness the children!!!
+          }
+          case List(p) => List(p)
         }
       }.toList.
         flatMap(x => x)   // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
