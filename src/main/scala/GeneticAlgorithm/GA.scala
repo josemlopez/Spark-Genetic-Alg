@@ -70,7 +70,8 @@ object GA{
       var iter2 = iter
       // Selection and replacement must be done "numGen" times
       for (i <- 0 to numGen) {
-        println(s"--- Running Gen: $i population: $index ---- ")
+        // println(s"--- Running Gen: $i population: $index ---- ")
+
         // Ordering the population by fitnessScore and storing in each Individual it's population (for statistical purposes)
         val currentSelectionOrdered: List[Individual[Boolean]] = iter2.toList.map(ind => {
           Individual[Boolean](ind.chromosome, ind.fitnessScore, bestInd = false, index)
@@ -78,8 +79,6 @@ object GA{
 
         // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
         val initialPopSize = currentSelectionOrdered.size
-        //val selectionSize = (initialPopSize * selectionPercentage).ceil.toInt
-
         val selectionF: SelectionFunction = selectionSelector(index)
 
         // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
@@ -93,16 +92,15 @@ object GA{
           case List(p) => List(p)
         }
         }.toList.
-          flatMap(x => x) // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
+          flatMap(x => x)                                                                 // (5) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
 
         // I've chosen a type of replacement that select the best individuals from the sum of: oldPopulation + newPopulation
         // in a very near future new replacement strategies will be implemented and pass like function
         val genOldAndGenNew = springs ++ currentSelectionOrdered
         val selectedIndviduals = genOldAndGenNew.sortBy(x => x.fitnessScore).reverse.take(initialPopSize)
-        // println("number of elements in Selection: " + selectedIndv.size)
-        // println("gen:"+i+" pob: "+index+"****"+selectedIndviduals.head.fitnessScore)
+
+
         iter2 = (List(selectedIndviduals.head.setBest(true)) ++ selectedIndviduals.tail).iterator
-        //selectedIndviduals.iterator
       }
       iter2
     }
