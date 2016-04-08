@@ -57,8 +57,8 @@ object GeneticJob{
 
     println("----------Running---------")
 
-    val out = new BufferedWriter(new FileWriter("stat.csv"))
-    val writer = new CSVWriter(out)
+    //val out = new BufferedWriter(new FileWriter("stat.csv"))
+    //val writer = new CSVWriter(out)
     val numGenerations = config.numGenerations
 
     val selections: Selector[SelectionFunction] = new Selector(Seq(new SelectionNaive, new SelectionRandom, new SelectionWrong))
@@ -78,7 +78,7 @@ object GeneticJob{
       selections,
       mutations)
 
-    out.close()
+    //out.close()
 
     //val totalFitness: Option[Double] = result._1.map(indv => indv.fitnessScore).reduce((acc, curr) => if (curr.get > 0) { Some(acc.get + curr.get)} else acc)
 
