@@ -32,8 +32,8 @@ object GeneticJob{
       argv = Array("default_config")
     }
 
-    //val sparkConf = new SparkConf().setAppName("Genetic-Spark").setMaster("local[*]")
-    val sparkConf = new SparkConf()
+    val sparkConf = new SparkConf().setAppName("Genetic-Spark").setMaster("local[*]")
+    //val sparkConf = new SparkConf()
     val sc = new SparkContext(sparkConf)
 
     val config = AppConfig(argv(0))
