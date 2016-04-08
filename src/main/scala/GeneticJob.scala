@@ -3,7 +3,8 @@ import java.io.{BufferedWriter, FileWriter}
 import GeneticAlgorithm.GA._
 import au.com.bytecode.opencsv.CSVWriter
 import domain.generateIndividualBoolean._
-import domain.{FitnessKnapsackProblem, Individual}
+import domain.{OnePointMutation, FitnessKnapsackProblem, Individual}
+import domain._
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.spark.broadcast.Broadcast
@@ -48,19 +49,22 @@ object GeneticJob{
 
     val sizePopulation = config.worldSize
     val fitnessKSP = new FitnessKnapsackProblem(values, weights, maxW)
+
+    val mutationF = new OnePointMutation()
     val populationRDD: RDD[Individual[Boolean]] = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), config.numPopulations).
       map(ind => ind(fitnessKSP.fitnessFunction))
 
     println("----------Running---------")
-    //populationRDD.foreach(println)
 
     val out = new BufferedWriter(new FileWriter("stat.csv"))
     val writer = new CSVWriter(out)
-    var pop = populationRDD
     val numGenerations = config.numGenerations
 
+    val selections: Selector[SelectionFunction] = new Selector(Seq(new SelectionNaive, new SelectionRandom, new SelectionWrong))
+    val mutations: Selector[MutationFunction] = new Selector(Seq(new OnePointMutation, new OnePointMutation, new NoMutation))
+
     val result = selectAndCrossAndMutatePopulation(
-      pop,
+      populationRDD,
       selectionPer,
       sizePopulation,
       mutationProb,
@@ -68,8 +72,10 @@ object GeneticJob{
       values,
       weights,
       maxW,
-      numGenerations)
-
+      numGenerations,
+      mutationF,
+      selections,
+      mutations)
 
     out.close()
 

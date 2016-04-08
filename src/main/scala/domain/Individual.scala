@@ -15,6 +15,57 @@ case class Individual[T](chromosome: Vector, fitnessScore: Option[Double], var b
   def setPop(value: Int) = Individual[T](this.chromosome, this.fitnessScore, bestInd, value)
 }
 
+trait MutationFunction extends java.io.Serializable{
+  def mutation(chrm:Array[Double], mutateProb: Float) : Array[Double]
+}
+
+class OnePointMutation extends MutationFunction {
+  // Here the point of cross is selected and a mutation is applied to the chromosome with probability: mutateProb
+  override  def mutation(chrm: Array[Double], mutateProb: Float): Array[Double] ={
+    val chrSize = chrm.length
+    val mutateRandom = scala.util.Random.nextFloat()
+    if (mutateRandom >= mutateProb){
+      val mutatePoint = scala.util.Random.nextInt(chrSize)
+      chrm(mutatePoint) match {
+        case 0 => chrm(mutatePoint) = 1.toDouble
+        case 1 => chrm(mutatePoint) = 0.toDouble
+      }
+    }
+    chrm
+  }
+}
+
+class NoMutation extends MutationFunction {
+  override  def mutation(chrm: Array[Double], mutateProb: Float): Array[Double] = chrm
+}
+
+class Selector[T](toSelect: Seq[T]) extends java.io.Serializable{
+  def apply(index: Int): T = toSelect(index % toSelect.length)
+}
+
+trait SelectionFunction extends java.io.Serializable {
+  def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]]
+}
+
+class SelectionNaive extends SelectionFunction {
+  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+    population.take((population.length * percentage).toInt)
+  }
+}
+
+class SelectionRandom extends SelectionFunction {
+  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+    scala.util.Random.shuffle(population).take((population.length * percentage).toInt)
+  }
+}
+
+class SelectionWrong extends SelectionFunction {
+  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+    List.fill((population.length * percentage).toInt)(population.head)
+  }
+}
+
+
 trait GAOperators[T]{
   def crossover:(Individual[T], Individual[T]) => List[Individual[T]]
   def fitnessFunction:(Individual[T]) => Double
@@ -29,7 +80,8 @@ object initialPopulation {
   /**
    * Given a function to generate an Individual, this function returns an Iterator for a generation of the individuals
    * using the function given: generateIndividual
-   * @param generateIndividual
+    *
+    * @param generateIndividual
    * @tparam T
    * @return
    */
@@ -57,7 +109,8 @@ object generateIndividualBoolean {
 
     /**
      * Taking the seed, this function creates an individual with a sizeChrm given
-     * @param seed
+      *
+      * @param seed
      * @return
      */
     def generateIndividualBoolean(seed: Long) : Individual[Boolean] = {

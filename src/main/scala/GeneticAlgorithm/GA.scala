@@ -1,6 +1,7 @@
 package GeneticAlgorithm
 
 import domain.{Fitness, Individual}
+import domain._
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
@@ -18,7 +19,10 @@ object GA{
                                         values: Broadcast[DenseVector], //In the "Knapsack problem" we have "Values of Objects and Weights of Objects"
                                         weights: Broadcast[DenseVector],
                                         maxWeight: Double,
-                                        numGen: Int) ={
+                                        numGen: Int,
+                                        mutationF: MutationFunction,
+                                        selectionSelector: Selector[SelectionFunction],
+                                        mutationSelector: Selector[MutationFunction]) ={
     // Why we use a Mega-function to do almost everything (Select-Mutation-Cross and Fitness calc)?:
     //   because we can make everything in a simple pass in the worker side
 
@@ -31,22 +35,10 @@ object GA{
       * @param parentB
       * @tparam T
       * @return
-      * @todo A near future improvement will be the mutation function passed like an argument
+      * @todo A near future improvement: mutation function passed like an argument
       */
-    def cross[T](parentA: Individual[Boolean],
-                 parentB: Individual[Boolean]): (Individual[Boolean],Individual[Boolean])  = {
-      // Here the point of cross is selected and a mutation is applied to the chromosome with probability: mutateProb
-      def onePointMutationBoolean(chrm: Array[Double], mutateProb: Float): Unit ={
-        val chrSize = chrm.size
-        val mutateRandom = scala.util.Random.nextFloat()
-        if (mutateRandom >= mutateProb){
-          val mutatePoint = scala.util.Random.nextInt(chrSize)
-          chrm(mutatePoint) match {
-            case 0 => chrm(mutatePoint) = 1.toDouble
-            case 1 => chrm(mutatePoint) = 0.toDouble
-          }
-        }
-      }
+    def cross[T](parentA: Individual[T],
+                 parentB: Individual[T]):(Individual[Boolean], Individual[Boolean])  = {
 
       val chrSize = parentA.chromosome.size
       val crossPoint = scala.util.Random.nextInt(chrSize)
@@ -55,14 +47,15 @@ object GA{
         parentB.chromosome.toDense.values.slice(crossPoint,chrSize)
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++
         parentA.chromosome.toDense.values.slice(crossPoint,chrSize)
-      // One point mutation.
-      onePointMutationBoolean (chrmA, mutateProb)
-      onePointMutationBoolean (chrmB, mutateProb)
+      // Mutation.
+      val chrmAMutated = mutationF.mutation(chrmA, mutateProb)
+      val chrmBMutated = mutationF.mutation(chrmB, mutateProb)
       // Execute of the crossover and creation of the two new individuals
-      val res = (new Individual[Boolean](new DenseVector(chrmA), Some(0.toDouble)),
-        new Individual[Boolean](new DenseVector(chrmB), Some(0.toDouble)))
+      val res = (new Individual[Boolean](new DenseVector(chrmAMutated), Some(0.toDouble)),
+        new Individual[Boolean](new DenseVector(chrmBMutated), Some(0.toDouble)))
       //println(" CrossOver: " + res.toString())
       res
+
     }
 
     /**
@@ -85,18 +78,18 @@ object GA{
 
         // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
         val initialPopSize = currentSelectionOrdered.size
-        val selectionSize = (initialPopSize * selectionPercentage).ceil.toInt
+        //val selectionSize = (initialPopSize * selectionPercentage).ceil.toInt
+
+        val selectionF: SelectionFunction = selectionSelector(index)
 
         // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
         // each new individual
-        val springs = currentSelectionOrdered. // we have our population in a List, ordered by the bests first
-          take(selectionSize). // (1) Selecting the N parents that will create the next childhood
-          sliding(2, 2). // (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
+        val springs = selectionF.selection(currentSelectionOrdered, selectionPercentage). //  (1) Selecting the N parents that will create the next childhood
+          sliding(2, 2).                                                                  //  (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
           map { l => l match {
-          // (3) Now that we have the parents separated in Lists, we can crossover
           case List(parent_A, parent_B) =>
-            val spring = cross(parent_A, parent_B) // (4) Lets remember that mutation is executed inside the Cross (to be changed)
-            List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (5) Remember to fitness the children!!!
+            val spring = cross(parent_A, parent_B)                                        // (3) Now that we have the parents separated in Lists, we can crossover
+            List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (4) Remember to fitness the children!!!
           case List(p) => List(p)
         }
         }.toList.
