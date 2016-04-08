@@ -32,8 +32,8 @@ object GeneticJob{
       argv = Array("default_config")
     }
 
-    val sparkConf = new SparkConf().setAppName("Genetic-Spark").setMaster("local[*]")
-    //val sparkConf = new SparkConf()
+    //val sparkConf = new SparkConf().setAppName("Genetic-Spark").setMaster("local[*]")
+    val sparkConf = new SparkConf()
     val sc = new SparkContext(sparkConf)
 
     val config = AppConfig(argv(0))
@@ -83,7 +83,7 @@ object GeneticJob{
     //val totalFitness: Option[Double] = result._1.map(indv => indv.fitnessScore).reduce((acc, curr) => if (curr.get > 0) { Some(acc.get + curr.get)} else acc)
 
     println("Resultado final: "+result._2.map(ind => (ind.population, ind.fitnessScore.get)).collect().mkString(";"))
-
+    sc.stop()
   }
 }
 
