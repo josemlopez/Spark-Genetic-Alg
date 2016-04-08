@@ -1,11 +1,9 @@
 package GeneticAlgorithm
 
-import domain.Individual
-import domain.{Fitness}
+import domain.{Fitness, Individual}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
-import scala.util.Try
 
 /**
  * Created by jmlopez on 27/01/16.
@@ -19,16 +17,16 @@ object GA{
                                         fitness: Fitness,
                                         values: Broadcast[DenseVector], //In the "Knapsack problem" we have "Values of Objects and Weights of Objects"
                                         weights: Broadcast[DenseVector],
-                                        maxWeight: Double) ={
+                                        maxWeight: Double,
+                                        numGen: Int) ={
     // Why we use a Mega-function to do almost everything (Select-Mutation-Cross and Fitness calc)?:
     //   because we can make everything in a simple pass in the worker side
-
-    val numPartitions = population.partitions.size
 
     /**
       * This cross function will create two children from parentA and parentB
       *
       * Note : A near future improvement will be the mutation fuction passed like an argument like the fitness function
+      *
       * @param parentA
       * @param parentB
       * @tparam T
@@ -75,34 +73,45 @@ object GA{
       * @param iter
       * @return
       */
-    def selection(iter: Iterator[Individual[Boolean]]) = {
-      // Ordering the population by fitnessScore    (1)
-      val currentSelectionOrdered: List[Individual[Boolean]] = iter.toList.sortBy(x => x.fitnessScore).reverse
-      // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
-      val initialPopSize = currentSelectionOrdered.size
-      val selectionSize = (initialPopSize*selectionPercentage).ceil.toInt
+    def selection(index: Int, iter: Iterator[Individual[Boolean]]): Iterator[Individual[Boolean]] = {
+      var iter2 = iter
+      // Selection and replacement must be done "numGen" times
+      for (i <- 0 to numGen) {
+        println(s"--- Running Gen: $i population: $index ---- ")
+        // Ordering the population by fitnessScore and storing in each Individual it's population (for statistical purposes)
+        val currentSelectionOrdered: List[Individual[Boolean]] = iter2.toList.map(ind => {
+          Individual[Boolean](ind.chromosome, ind.fitnessScore, bestInd = false, index)
+        }).sortBy(x => x.fitnessScore).reverse
 
-      // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
-      // each new individual
-      val springs = currentSelectionOrdered. // we have our population in a List, ordered by the bests first
-        take(selectionSize).   // (1) Selecting the N parents that will create the next childhood
-        sliding(2,2).          // (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
-        map { l => l match {                 // (3) Now that we have the parents separated in Lists, we can crossover
-          case List(parent_A, parent_B) => {
-            val spring = cross(parent_A, parent_B)    // (4) Lets remember that mutation is executed inside the Cross (to be changed)
-            List(spring._1(fitness.fitnessFunction), spring._2(fitness.fitnessFunction))  // (5) Remember to fitness the children!!!
-          }
+        // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
+        val initialPopSize = currentSelectionOrdered.size
+        val selectionSize = (initialPopSize * selectionPercentage).ceil.toInt
+
+        // This is probably the best (in terms of optimization) point to make the calculation of the fitness of
+        // each new individual
+        val springs = currentSelectionOrdered. // we have our population in a List, ordered by the bests first
+          take(selectionSize). // (1) Selecting the N parents that will create the next childhood
+          sliding(2, 2). // (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
+          map { l => l match {
+          // (3) Now that we have the parents separated in Lists, we can crossover
+          case List(parent_A, parent_B) =>
+            val spring = cross(parent_A, parent_B) // (4) Lets remember that mutation is executed inside the Cross (to be changed)
+            List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (5) Remember to fitness the children!!!
           case List(p) => List(p)
         }
-      }.toList.
-        flatMap(x => x)   // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
+        }.toList.
+          flatMap(x => x) // (6) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
 
-      // I've chosen a type of replacement that select the best individuals from the sum of: oldPopulation + newPopulation
-      // in a very near future new replacement strategies will be implemented and pass like function
-      val genOldAndGenNew  = springs ++ currentSelectionOrdered
-      val selectedIndviduals = genOldAndGenNew.sortBy(x=>x.fitnessScore).reverse.take(initialPopSize)
-      //println("number of elements in Selection: " + selectedIndv.size)
-      selectedIndviduals.iterator
+        // I've chosen a type of replacement that select the best individuals from the sum of: oldPopulation + newPopulation
+        // in a very near future new replacement strategies will be implemented and pass like function
+        val genOldAndGenNew = springs ++ currentSelectionOrdered
+        val selectedIndviduals = genOldAndGenNew.sortBy(x => x.fitnessScore).reverse.take(initialPopSize)
+        // println("number of elements in Selection: " + selectedIndv.size)
+        // println("gen:"+i+" pob: "+index+"****"+selectedIndviduals.head.fitnessScore)
+        iter2 = (List(selectedIndviduals.head.setBest(true)) ++ selectedIndviduals.tail).iterator
+        //selectedIndviduals.iterator
+      }
+      iter2
     }
 
     // Why mapPartitions?
@@ -119,6 +128,12 @@ object GA{
     // This solution will not follow the usual path: The current implementation will calculate and replace the best K individuals
     // in each partition, not in the entire population, this way we have a set of GAs running in parallel in our RDD.
 
-    population.mapPartitions(selection, preservesPartitioning = true)
+    val populationRDD = population.mapPartitionsWithIndex(selection, preservesPartitioning = true)
+
+    //val totalFitness: Option[Double] = populationRDD.map(indv => indv.fitnessScore).reduce((acc, curr) => if (curr.get > 0) { Some(acc.get + curr.get)} else acc)
+    val bestIndvs = populationRDD.filter(ind => ind.bestInd)
+
+    // populationRDD
+    (populationRDD,bestIndvs)
   }
 }

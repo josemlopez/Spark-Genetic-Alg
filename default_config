@@ -1,0 +1,7 @@
+numGenerations =  1000
+mutProb=0.01
+selectionPercentage=0.5
+numPopulations=8
+sizePop=1000
+chromSize=300
+maxWeight_problem=157

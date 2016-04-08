@@ -15,6 +15,5 @@ libraryDependencies ++= Seq(
   "org.apache.spark"  %% "spark-graphx"  % sparkVersion   % "provided",
   "org.apache.spark"  %% "spark-mllib"   % sparkVersion   % "provided",
   "org.apache.spark"  %% "spark-sql"     % sparkVersion   % "provided",
-  "org.apache.hadoop" % "hadoop-hdfs" % "2.5.2",
   "org.scalatest"     % "scalatest_2.10" % "2.0" % "test"
 )
