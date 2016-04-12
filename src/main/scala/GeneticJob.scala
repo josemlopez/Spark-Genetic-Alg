@@ -1,10 +1,8 @@
 import GeneticAlgorithm.GA._
 import GeneticAlgorithm._
+import domain.FitnessKnapsackProblem
 import domain.generateIndividualBoolean._
-import domain.{FitnessKnapsackProblem, Individual}
-import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.mllib.linalg.{DenseVector, Vectors}
-import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
@@ -26,7 +24,7 @@ object GeneticJob{
     val sc = new SparkContext(sparkConf)
 
     // Problem definition
-    val values: Broadcast[DenseVector] = sc.broadcast(Vectors.dense(Array.fill(setup.chromSize)(math.random*100)).toDense)
+    val values = sc.broadcast(Vectors.dense(Array.fill(setup.chromSize)(math.random*100)).toDense)
     val weights =  sc.broadcast(Vectors.dense(Array.fill(setup.chromSize)(math.random*10)).toDense)
     val maxW = setup.maxW
     val fitnessKSP = new FitnessKnapsackProblem(values, weights, maxW)
@@ -36,11 +34,11 @@ object GeneticJob{
     val selectionPer = setup.selectionPercentage
     val mutationProb = setup.mutProb
     val numGenerations = setup.numGenerations
-    val selections: Selector[SelectionFunction] = new Selector(Seq(new SelectionNaive, new SelectionRandom, new SelectionWrong))
-    val mutations: Selector[MutationFunction] = new Selector(Seq(new OnePointMutation, new OnePointMutation, new NoMutation))
+    val selections  = sc.broadcast(new Selector(Seq(new SelectionNaive, new SelectionNaive, new SelectionRandom)))
+    val mutations = sc.broadcast(new Selector(Seq(new OnePointMutation, new NoMutation, new OnePointMutation)))
 
     // Creation Random Population
-    val populationRDD: RDD[Individual[Boolean]] = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), setup.numPopulations).
+    val populationRDD = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), setup.numPopulations).
       map(ind => ind(fitnessKSP.fitnessFunction))
     println("----------Running---------")
 
@@ -49,8 +47,6 @@ object GeneticJob{
       selectionPer,
       mutationProb,
       fitnessKSP,
-      values,
-      weights,
       maxW,
       numGenerations,
       selections,

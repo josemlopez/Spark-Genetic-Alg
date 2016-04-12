@@ -16,8 +16,6 @@ object GA{
     * @param selectionPercentage : Percentage of population to be selected for the crossover each generation
     * @param mutateProb : Probability of mutation in each crossover
     * @param fitness : Fitness Function to measure each Individual
-    * @param values : Values in the Knapsack problem
-    * @param weights : Weights in the Knapsack problem
     * @param maxWeight : Max weight to carry in the Knapsack problem
     * @param numGen : Max num of generations
     * @param selectionSelector : Selections to be applied to each population in each generation
@@ -28,12 +26,10 @@ object GA{
                                         selectionPercentage: Double, // we use a percentage of the final population and not a fixed population selection
                                         mutateProb: Float,
                                         fitness: Fitness,
-                                        values: Broadcast[DenseVector], //In the "Knapsack problem" we have "Values of Objects and Weights of Objects"
-                                        weights: Broadcast[DenseVector],
                                         maxWeight: Double,
                                         numGen: Int,
-                                        selectionSelector: Selector[SelectionFunction],
-                                        mutationSelector: Selector[MutationFunction])={
+                                        selectionSelector: Broadcast[Selector[SelectionFunction]],
+                                        mutationSelector: Broadcast[Selector[MutationFunction]])={
     /**
       * This cross function will create two children from parentA and parentB
       *
@@ -47,18 +43,18 @@ object GA{
       */
     def cross[T](parentA: Individual[T],
                  parentB: Individual[T],
-                 index: Int):(Individual[Boolean], Individual[Boolean])  = {
+                 index: Int):(Individual[T], Individual[T])  = {
       val chrSize = parentA.chromosome.size
       val crossPoint = scala.util.Random.nextInt(chrSize)
       // We'll need the chromosome of each parent to create the new individuals
       val chrmA: Array[Double] = parentA.chromosome.toDense.values.slice(0,crossPoint)++parentB.chromosome.toDense.values.slice(crossPoint,chrSize)
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++parentA.chromosome.toDense.values.slice(crossPoint,chrSize)
       // Mutation.
-      val chrmAMutated = mutationSelector(index).mutation(chrmA, mutateProb)
-      val chrmBMutated = mutationSelector(index).mutation(chrmB, mutateProb)
+      val chrmAMutated = mutationSelector.value(index).mutation(chrmA, mutateProb)
+      val chrmBMutated = mutationSelector.value(index).mutation(chrmB, mutateProb)
       // Execute of the crossover and creation of the two new individuals
-      ( new Individual[Boolean](new DenseVector(chrmAMutated), Some(0.toDouble)),
-        new Individual[Boolean](new DenseVector(chrmBMutated), Some(0.toDouble)))
+      ( new Individual[T](new DenseVector(chrmAMutated), Some(0.toDouble)),
+        new Individual[T](new DenseVector(chrmBMutated), Some(0.toDouble)))
     }
 
     /**
@@ -70,17 +66,17 @@ object GA{
       * @param iter : Population
       * @return
       */
-    def selection(index: Int, iter: Iterator[Individual[Boolean]]): Iterator[Individual[Boolean]] = {
+    def selection[T](index: Int, iter: Iterator[Individual[T]]): Iterator[Individual[T]] = {
       var iter2 = iter
       // Selection and replacement must be done "numGen" times
       for (i <- 0 to numGen) {
         // Ordering the population by fitnessScore and storing in each Individual the population index (for statistical purposes)
-        val currentSelectionOrdered: List[Individual[Boolean]] = iter2.toList.map(
-          ind => {Individual[Boolean](ind.chromosome, ind.fitnessScore, bestInd = false, index)}
+        val currentSelectionOrdered: List[Individual[T]] = iter2.toList.map(
+          ind => {Individual[T](ind.chromosome, ind.fitnessScore, bestInd = false, index)}
         ).sortBy(x => x.fitnessScore).reverse
         // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
         val initialPopSize = currentSelectionOrdered.size
-        val selectionF: SelectionFunction = selectionSelector(index)
+        val selectionF: SelectionFunction = selectionSelector.value(index)
         // Calculate the next Generation
         val springs = selectionF.
           selection(currentSelectionOrdered, selectionPercentage).                        //  (1) Selecting the N parents that will create the next childhood
@@ -103,8 +99,8 @@ object GA{
       iter2
     }
     // mapPartitionsWithIndex allows us to treat each partition like an entire population
-    val populationRDD = population.mapPartitionsWithIndex(selection, preservesPartitioning = true)
+    val populationRDD = population.mapPartitionsWithIndex(selection[Boolean], preservesPartitioning = true)
     val bestIndvs = populationRDD.filter(ind => ind.bestInd)
-    (populationRDD,bestIndvs)
+    (bestIndvs,bestIndvs)
   }
 }

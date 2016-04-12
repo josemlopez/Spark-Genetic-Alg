@@ -16,13 +16,11 @@ import scala.util.Random
   * @param indexPop : Id of the population
   * @tparam T : Base type of the Individual
   */
-case class Individual[T](chromosome: Vector, fitnessScore: Option[Double], var bestInd: Boolean = false, indexPop: Int = -1) {
-  override def toString: String = {
-     chromosome.toArray.mkString(";")
-  }
-  def apply(function: Individual[T] => Double) = Individual[T](chromosome=this.chromosome, fitnessScore = Some(function(this)))
-  def setBest(value: Boolean = true): Individual[T] = Individual[T](this.chromosome, this.fitnessScore, value, indexPop)
-  def setPop(value: Int) = Individual[T](this.chromosome, this.fitnessScore, bestInd, value)
+case class Individual[T](chromosome: Vector, fitnessScore: Option[Double], bestInd: Boolean = false, indexPop: Int = -1) {
+  override def toString: String = chromosome.toArray.mkString(";")
+  def apply(function: Individual[T] => Double): Individual[T] = copy(fitnessScore = Some(function(this)))
+  def setBest(value: Boolean = true): Individual[T] = copy(bestInd = value)
+  def setPop(value: Int): Individual[T] = copy(indexPop = value)
 }
 
 object initialPopulation {
