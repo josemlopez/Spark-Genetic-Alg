@@ -22,13 +22,13 @@ object GA{
     * @param mutationSelector : Mutations to be applied to each population in each generation
     * @return The final population once the stop condition have been satisfied
     */
-  def selectAndCrossAndMutatePopulation(population: RDD[Individual[Boolean]],
+  def selectAndCrossAndMutatePopulation[T](population: RDD[Individual[T]],
                                         selectionPercentage: Double, // we use a percentage of the final population and not a fixed population selection
                                         mutateProb: Float,
                                         fitness: Fitness,
                                         maxWeight: Double,
                                         numGen: Int,
-                                        selectionSelector: Broadcast[Selector[SelectionFunction]],
+                                        selectionSelector: Broadcast[Selector[(List[Individual[T]], Double) => List[Individual[T]]]],
                                         mutationSelector: Broadcast[Selector[MutationFunction]])={
     /**
       * This cross function will create two children from parentA and parentB
@@ -66,7 +66,7 @@ object GA{
       * @param iter : Population
       * @return
       */
-    def selection[T](index: Int, iter: Iterator[Individual[T]]): Iterator[Individual[T]] = {
+    def selection[T](index: Int, iter: Iterator[Individual[T]])= {
       var iter2 = iter
       // Selection and replacement must be done "numGen" times
       for (i <- 0 to numGen) {
@@ -76,17 +76,15 @@ object GA{
         ).sortBy(x => x.fitnessScore).reverse
         // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
         val initialPopSize = currentSelectionOrdered.size
-        val selectionF: SelectionFunction = selectionSelector.value(index)
+        val selectionF = selectionSelector.value(index)
         // Calculate the next Generation
-        val springs = selectionF.
-          selection(currentSelectionOrdered, selectionPercentage).                        //  (1) Selecting the N parents that will create the next childhood
+        val springs = selectionF(currentSelectionOrdered, selectionPercentage).                        //  (1) Selecting the N parents that will create the next childhood
           sliding(2, 2).                                                                  //  (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
           map(
           l => l match {
                   case List(parent_A, parent_B) =>
                     val spring = cross(parent_A, parent_B, index)                         // (3) Now that we have the parents separated in Lists, we can crossover
                     List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (4) Remember to fitness the children!!!
-
                   case List(p) =>
                     List(p)
               }
@@ -99,7 +97,7 @@ object GA{
       iter2
     }
     // mapPartitionsWithIndex allows us to treat each partition like an entire population
-    val populationRDD = population.mapPartitionsWithIndex(selection[Boolean], preservesPartitioning = true)
+    val populationRDD = population.mapPartitionsWithIndex(selection[T], preservesPartitioning = true)
     val bestIndvs = populationRDD.filter(ind => ind.bestInd)
     (bestIndvs,bestIndvs)
   }

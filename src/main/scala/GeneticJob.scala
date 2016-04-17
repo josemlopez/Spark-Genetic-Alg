@@ -1,7 +1,8 @@
 import GeneticAlgorithm.GA._
 import GeneticAlgorithm._
-import domain.FitnessKnapsackProblem
+import domain.{Individual, FitnessKnapsackProblem}
 import domain.generateIndividualBoolean._
+import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.{SparkConf, SparkContext}
 
@@ -34,7 +35,9 @@ object GeneticJob{
     val selectionPer = setup.selectionPercentage
     val mutationProb = setup.mutProb
     val numGenerations = setup.numGenerations
-    val selections  = sc.broadcast(new Selector(Seq(new SelectionNaive, new SelectionNaive, new SelectionRandom)))
+    val selections = sc.broadcast(new Selector(Seq(SelectionOperators.SelectionNaive[Boolean]_,
+      SelectionOperators.SelectionNaive[Boolean]_,
+        SelectionOperators.SelectionNaive[Boolean]_)))
     val mutations = sc.broadcast(new Selector(Seq(new OnePointMutation, new NoMutation, new OnePointMutation)))
 
     // Creation Random Population

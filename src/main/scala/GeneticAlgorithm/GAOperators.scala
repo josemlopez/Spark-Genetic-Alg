@@ -51,25 +51,12 @@ class NoMutation extends MutationFunction {
   override  def mutation(chrm: Array[Double], mutateProb: Float): Array[Double] = chrm
 }
 
-// Selection
-/**
-  *  Selection trait to be satisfy for the Selection Functions
-  */
-trait SelectionFunction extends java.io.Serializable {
-  /**
-    *
-    * @param population : Population from where to select the Individuals
-    * @param percentage : Percentage of Individuals to be selected
-    * @tparam T : Base type of the Individuals to be selected
-    * @return : A population of length : population.length * percentage
-    */
-  def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]]
-}
+
 
 /**
   *
   */
-class SelectionNaive extends SelectionFunction {
+object SelectionOperators {
   /**
     *  This function will select the first N Individuals. Where N is: population.length * percentage
     * @param population : Population from where to select the Individuals
@@ -77,15 +64,10 @@ class SelectionNaive extends SelectionFunction {
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+   def SelectionNaive[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
     population.take((population.length * percentage).toInt)
   }
-}
 
-/**
-  *
-  */
-class SelectionRandom extends SelectionFunction {
   /**
     * This function will select N Individuals Randomly. Where N is: population.length * percentage
     * @param population : Population from where to select the Individuals
@@ -93,15 +75,10 @@ class SelectionRandom extends SelectionFunction {
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+  def SelectionRandom[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
     scala.util.Random.shuffle(population).take((population.length * percentage).toInt)
   }
-}
 
-/**
-  *
-  */
-class SelectionWrong extends SelectionFunction {
   /**
     * A function that doesn't select Individuals but returns a population where all the Individuals are the
     * first Individual of the given population
@@ -110,10 +87,12 @@ class SelectionWrong extends SelectionFunction {
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  override def selection[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
+  def SelectionWrong[T](population: List[Individual[T]], percentage: Double): List[Individual[T]] = {
     List.fill((population.length * percentage).toInt)(population.head)
   }
+
 }
+
 
 // Selector
 class Selector[T](toSelect: Seq[T]) extends java.io.Serializable{
