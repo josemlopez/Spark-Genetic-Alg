@@ -10,13 +10,13 @@ import domain._
   * Trait for the Mutation functions
   */
 trait MutationFunction extends java.io.Serializable{
-  def mutation(chrm:Array[Double], mutateProb: Float) : Array[Double]
+  def mutation(chrm:Array[Double], mutateProb: Float= 0f) : Array[Double]
 }
 
 /**
   * This mutation function changes a unique position of the given chromosome with probability mutateProb
   */
-class OnePointMutation extends MutationFunction {
+class OnePointMutation(mutationProb : Float) extends MutationFunction {
 
   /**
     * This mutation function changes a unique position of the given chromosome with probability mutateProb
@@ -24,7 +24,7 @@ class OnePointMutation extends MutationFunction {
     * @param mutateProb : Mutation probability
     * @return : A new chromosome with a unique position mutated
     */
-  override  def mutation(chrm: Array[Double], mutateProb: Float): Array[Double] ={
+  override  def mutation(chrm: Array[Double], mutateProb: Float = mutationProb): Array[Double] ={
     val chrSize = chrm.length
     val mutateRandom = scala.util.Random.nextFloat()
     if (mutateRandom >= mutateProb){
@@ -48,9 +48,8 @@ class NoMutation extends MutationFunction {
     * @param mutateProb : Mutation probability
     * @return : The same chromosome pass like argument
     */
-  override  def mutation(chrm: Array[Double], mutateProb: Float): Array[Double] = chrm
+  override  def mutation(chrm: Array[Double], mutateProb: Float = 0f): Array[Double] = chrm
 }
-
 
 
 /**

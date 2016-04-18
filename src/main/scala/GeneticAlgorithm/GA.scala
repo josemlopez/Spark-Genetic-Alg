@@ -24,7 +24,6 @@ object GA{
     */
   def selectAndCrossAndMutatePopulation[T](population: RDD[Individual[T]],
                                         selectionPercentage: Double, // we use a percentage of the final population and not a fixed population selection
-                                        mutateProb: Float,
                                         fitness: Fitness,
                                         maxWeight: Double,
                                         numGen: Int,
@@ -50,8 +49,8 @@ object GA{
       val chrmA: Array[Double] = parentA.chromosome.toDense.values.slice(0,crossPoint)++parentB.chromosome.toDense.values.slice(crossPoint,chrSize)
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++parentA.chromosome.toDense.values.slice(crossPoint,chrSize)
       // Mutation.
-      val chrmAMutated = mutationSelector.value(index).mutation(chrmA, mutateProb)
-      val chrmBMutated = mutationSelector.value(index).mutation(chrmB, mutateProb)
+      val chrmAMutated = mutationSelector.value(index).mutation(chrmA)
+      val chrmBMutated = mutationSelector.value(index).mutation(chrmB)
       // Execute of the crossover and creation of the two new individuals
       ( new Individual[T](new DenseVector(chrmAMutated), Some(0.toDouble)),
         new Individual[T](new DenseVector(chrmBMutated), Some(0.toDouble)))
@@ -66,7 +65,7 @@ object GA{
       * @param iter : Population
       * @return
       */
-    def selection[T](index: Int, iter: Iterator[Individual[T]])= {
+    def selection(index: Int, iter: Iterator[Individual[T]])= {
       var iter2 = iter
       // Selection and replacement must be done "numGen" times
       for (i <- 0 to numGen) {
@@ -97,7 +96,7 @@ object GA{
       iter2
     }
     // mapPartitionsWithIndex allows us to treat each partition like an entire population
-    val populationRDD = population.mapPartitionsWithIndex(selection[T], preservesPartitioning = true)
+    val populationRDD = population.mapPartitionsWithIndex(selection, preservesPartitioning = true)
     val bestIndvs = populationRDD.filter(ind => ind.bestInd)
     (bestIndvs,bestIndvs)
   }
