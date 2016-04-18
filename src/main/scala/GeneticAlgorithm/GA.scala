@@ -71,7 +71,7 @@ object GA{
         val initialPopSize = currentSelectionOrdered.size
         val selectionF = selectionSelector(index)
         // Calculate the next Generation
-        val springs = selectionF(currentSelectionOrdered, selectionPercentage).           //  (1) Selecting the N parents that will create the next childhood
+        val springs = selectionF(currentSelectionOrdered).           //  (1) Selecting the N parents that will create the next childhood
           sliding(2, 2).                                                                  //  (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
           map(
           l => l match {
