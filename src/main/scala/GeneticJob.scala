@@ -6,8 +6,8 @@ import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
-*  Class Created by jmlopez on 01/01/16.
-*/
+  *  Class Created by jmlopez on 01/01/16.
+  */
 object GeneticJob{
 
   // case class GAStat (generation: Int, averageFit: Double, totalFit: Double)
@@ -34,10 +34,16 @@ object GeneticJob{
     val selectionPer = setup.selectionPercentage
     val mutationProb = setup.mutProb
     val numGenerations = setup.numGenerations
-    val selections = sc.broadcast(new Selector(Seq(SelectionOperators.SelectionNaive[Boolean]_,
-      SelectionOperators.SelectionNaive[Boolean]_,
-        SelectionOperators.SelectionNaive[Boolean]_)))
-    val mutations = sc.broadcast(new Selector(Seq(new OnePointMutation(mutationProb), new NoMutation, new OnePointMutation(mutationProb*20000))))
+    val selections = new Selector(Seq(
+      SelectionOperators.SelectionNaive[Boolean](selectionPer) _,
+      SelectionOperators.SelectionNaive[Boolean](selectionPer) _,
+      SelectionOperators.SelectionNaive[Boolean](selectionPer) _
+    ))
+    val mutations = new Selector(Seq(
+      MutationOperators.OnePointMutation(mutationProb) _,
+      MutationOperators.NoMutation _,
+      MutationOperators.OnePointMutation(mutationProb*20000) _
+    ))
 
     // Creation Random Population
     val populationRDD = sc.parallelize(initialPopulationBoolean(crhmSize, sizePopulation), setup.numPopulations).
@@ -46,7 +52,6 @@ object GeneticJob{
 
     val result = selectAndCrossAndMutatePopulation(
       populationRDD,
-      selectionPer,
       fitnessKSP,
       maxW,
       numGenerations,

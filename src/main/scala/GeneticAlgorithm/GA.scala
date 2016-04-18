@@ -1,20 +1,16 @@
 package GeneticAlgorithm
 
+import GeneticAlgorithm.MutationOperators.MutationOperator
+import GeneticAlgorithm.SelectionOperators.SelectionOperator
 import domain.{Fitness, Individual}
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.mllib.linalg.DenseVector
 import org.apache.spark.rdd.RDD
 
-/**
- * Created by jmlopez on 27/01/16.
- */
 object GA{
 
   /**
     *
     * @param population : Original populations to be evolved
-    * @param selectionPercentage : Percentage of population to be selected for the crossover each generation
-    * @param mutateProb : Probability of mutation in each crossover
     * @param fitness : Fitness Function to measure each Individual
     * @param maxWeight : Max weight to carry in the Knapsack problem
     * @param numGen : Max num of generations
@@ -23,12 +19,11 @@ object GA{
     * @return The final population once the stop condition have been satisfied
     */
   def selectAndCrossAndMutatePopulation[T](population: RDD[Individual[T]],
-                                        selectionPercentage: Double, // we use a percentage of the final population and not a fixed population selection
-                                        fitness: Fitness,
-                                        maxWeight: Double,
-                                        numGen: Int,
-                                        selectionSelector: Broadcast[Selector[(List[Individual[T]], Double) => List[Individual[T]]]],
-                                        mutationSelector: Broadcast[Selector[MutationFunction]])={
+                                           fitness: Fitness,
+                                           maxWeight: Double,
+                                           numGen: Int,
+                                           selectionSelector: Selector[SelectionOperator[T]],
+                                           mutationSelector: Selector[MutationOperator])={
     /**
       * This cross function will create two children from parentA and parentB
       *
@@ -36,21 +31,20 @@ object GA{
       *
       * @param parentA : Individual
       * @param parentB : Individual
-      * @tparam T : Type base of the Individuals
       * @return A pair of Individuals product of the crossed between parentA and parentB
       * @todo A near future improvement: mutation function passed like an argument
       */
-    def cross[T](parentA: Individual[T],
-                 parentB: Individual[T],
-                 index: Int):(Individual[T], Individual[T])  = {
+    def cross(parentA: Individual[T],
+              parentB: Individual[T],
+              index: Int):(Individual[T], Individual[T])  = {
       val chrSize = parentA.chromosome.size
       val crossPoint = scala.util.Random.nextInt(chrSize)
       // We'll need the chromosome of each parent to create the new individuals
       val chrmA: Array[Double] = parentA.chromosome.toDense.values.slice(0,crossPoint)++parentB.chromosome.toDense.values.slice(crossPoint,chrSize)
       val chrmB: Array[Double] = parentB.chromosome.toDense.values.slice(0,crossPoint)++parentA.chromosome.toDense.values.slice(crossPoint,chrSize)
       // Mutation.
-      val chrmAMutated = mutationSelector.value(index).mutation(chrmA)
-      val chrmBMutated = mutationSelector.value(index).mutation(chrmB)
+      val chrmAMutated = mutationSelector(index)(chrmA)
+      val chrmBMutated = mutationSelector(index)(chrmB)
       // Execute of the crossover and creation of the two new individuals
       ( new Individual[T](new DenseVector(chrmAMutated), Some(0.toDouble)),
         new Individual[T](new DenseVector(chrmBMutated), Some(0.toDouble)))
@@ -75,19 +69,19 @@ object GA{
         ).sortBy(x => x.fitnessScore).reverse
         // Calculate the popSize and then the number of Individuals to be selected and to be Crossed
         val initialPopSize = currentSelectionOrdered.size
-        val selectionF = selectionSelector.value(index)
+        val selectionF = selectionSelector(index)
         // Calculate the next Generation
-        val springs = selectionF(currentSelectionOrdered, selectionPercentage).                        //  (1) Selecting the N parents that will create the next childhood
+        val springs = selectionF(currentSelectionOrdered, selectionPercentage).           //  (1) Selecting the N parents that will create the next childhood
           sliding(2, 2).                                                                  //  (2) Sliding is the trick here: List(0,1,2,3).sliding(2,2).ToList = List(List(0, 1), List(2, 3))
           map(
           l => l match {
-                  case List(parent_A, parent_B) =>
-                    val spring = cross(parent_A, parent_B, index)                         // (3) Now that we have the parents separated in Lists, we can crossover
-                    List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (4) Remember to fitness the children!!!
-                  case List(p) =>
-                    List(p)
-              }
-          ).
+            case List(parent_A, parent_B) =>
+              val spring = cross(parent_A, parent_B, index)                               //  (3) Now that we have the parents separated in Lists, we can crossover
+              List(spring._1(fitness.fitnessFunction).setPop(index), spring._2(fitness.fitnessFunction).setPop(index)) // (4) Remember to fitness the children!!!
+            case List(p) =>
+              List(p)
+          }
+        ).
           toList.flatMap(x => x)                                                          // (5) we are interested in a plain List, not in a List of Lists => flatmap(x => x)
         // I've chosen a type of replacement that select the best individuals from the append of: oldPopulation + newPopulation
         val selectedIndividuals = (springs ++ currentSelectionOrdered).sortBy(x => x.fitnessScore).reverse.take(initialPopSize)
