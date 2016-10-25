@@ -35,14 +35,14 @@ object GeneticJob{
     val mutationProb = setup.mutProb
     val numGenerations = setup.numGenerations
     val selections = new Selector(Seq(
-      SelectionOperators.SelectionNaive[Boolean](selectionPer) _,
-      SelectionOperators.SelectionNaive[Boolean](selectionPer) _,
-      SelectionOperators.SelectionNaive[Boolean](selectionPer) _
+      SelectionOperators.selectionNaive[Boolean](selectionPer) _,
+      SelectionOperators.selectionNaive[Boolean](selectionPer) _,
+      SelectionOperators.selectionNaive[Boolean](selectionPer) _
     ))
     val mutations = new Selector(Seq(
-      MutationOperators.OnePointMutation(mutationProb) _,
-      MutationOperators.NoMutation _,
-      MutationOperators.OnePointMutation(mutationProb*20000) _
+      MutationOperators.onePointMutation(mutationProb) _,
+      MutationOperators.noMutation _,
+      MutationOperators.onePointMutation(mutationProb*20000) _
     ))
 
     // Creation Random Population

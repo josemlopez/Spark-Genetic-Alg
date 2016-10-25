@@ -18,7 +18,7 @@ object MutationOperators {
     * @param chrm : Chromosome to mutate
     * @return : A new chromosome with a unique position mutated
     */
-  def OnePointMutation(mutationProb: Float)(chrm: Array[Double]): Array[Double] ={
+  def onePointMutation(mutationProb: Float)(chrm: Array[Double]): Array[Double] ={
     val chrSize = chrm.length
     val mutateRandom = scala.util.Random.nextFloat()
     if (mutateRandom >= mutationProb){
@@ -33,10 +33,11 @@ object MutationOperators {
 
   /**
     * This function doesn't apply mutation
+    *
     * @param chrm : Chromosome to mutate
     * @return : The same chromosome pass like argument
     */
-  def NoMutation(chrm: Array[Double]): Array[Double] = chrm
+  def noMutation(chrm: Array[Double]): Array[Double] = chrm
 
 }
 
@@ -49,44 +50,113 @@ object SelectionOperators {
 
   /**
     *  This function will select the first N Individuals. Where N is: population.length * percentage
+    *
     * @param population : Population from where to select the Individuals
     * @param percentage : Percentage of Individuals to be selected
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  def SelectionNaive[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
+  def selectionNaive[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
     population.take((population.length * percentage).toInt)
   }
 
   /**
     * This function will select N Individuals Randomly. Where N is: population.length * percentage
+    *
     * @param population : Population from where to select the Individuals
     * @param percentage : Percentage of Individuals to be selected
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  def SelectionRandom[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
+  def selectionRandom[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
     scala.util.Random.shuffle(population).take((population.length * percentage).toInt)
   }
 
   /**
     * A function that doesn't select Individuals but returns a population where all the Individuals are the
     * first Individual of the given population
+    *
     * @param population : Population from where to select the Individuals
     * @param percentage : Percentage of Individuals to be selected
     * @tparam T : Base type of the Individuals to be selected
     * @return : A population of length : population.length * percentage
     */
-  def SelectionWrong[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
+  def selectionWrong[T](percentage: Double)(population: List[Individual[T]]): List[Individual[T]] = {
     List.fill((population.length * percentage).toInt)(population.head)
   }
 
 }
 
+
+/**
+  *
+  */
+object ReplaceOperators {
+
+  type ReplaceOperator[T] = (List[Individual[T]], List[Individual[T]]) => List[Individual[T]]
+
+  /**
+    *
+    * @param population
+    * @param springs
+    * @tparam T
+    * @return
+    */
+  def naiveReplace[T](population: List[Individual[T]], springs: List[Individual[T]]): List[Individual[T]] = {
+    val initialPopSize = population.size
+    if (initialPopSize >= springs.size) {
+      (springs ++ population).sortBy(x => x.fitnessScore).reverse.take(initialPopSize)
+    } else {
+      population
+    }
+  }
+
+
+  /**
+    *
+    * @param population
+    * @param springs
+    * @tparam T
+    * @return
+    */
+  def replaceWorstInPop[T](population: List[Individual[T]], springs: List[Individual[T]]): List[Individual[T]] = {
+    val initialPopSize = population.size
+    val popOrdered = population.sortBy(x => x.fitnessScore).reverse
+    if (initialPopSize >= springs.size) {
+      popOrdered.take(initialPopSize - springs.size) ++ springs
+    } else {
+      population
+    }
+  }
+
+  /**
+    *
+    * @param population
+    * @param springs
+    * @tparam T
+    * @return
+    */
+  def replaceRandomInPop[T](population: List[Individual[T]], springs: List[Individual[T]]): List[Individual[T]] = {
+    import scala.util.Random
+    val initialPopSize = population.size
+    if (initialPopSize >= springs.size) {
+      Random.shuffle(population).take(initialPopSize - springs.size) ++ springs
+    } else {
+      population
+    }
+  }
+
+
+}
+
+
 // Selector
 class Selector[T](toSelect: Seq[T]) extends java.io.Serializable{
   def apply(index: Int): T = toSelect(index % toSelect.length)
 }
+
+
+
 
 /*
 trait GAOperators[T]{
